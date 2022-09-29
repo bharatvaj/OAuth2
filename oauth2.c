@@ -1,24 +1,4 @@
-/*
-Copyright (c) 2010 Jamie Garside
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-*/
+/* See LICENSE file for copyright and license details. */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -31,32 +11,33 @@ THE SOFTWARE.
 oauth2_config* oauth2_init(char* client, char* secret)
 {
     int input_strlen;
-    oauth2_config* retVal = malloc(sizeof(oauth2_config));
+    oauth2_config* ret_val = malloc(sizeof(oauth2_config));
 
-    if(retVal == NULL)
+    if(ret_val == NULL)
         return NULL;
 
     //Copy in the client id etc
     input_strlen = strlen(client)+1;
-    retVal->client_id = malloc(input_strlen * sizeof(char));
-    strcpy(retVal->client_id, client);
+    ret_val->client_id = malloc(input_strlen * sizeof(char));
+    strcpy(ret_val->client_id, client);
 
-    assert(retVal->client_id[input_strlen-1] == '\0');
+    assert(ret_val->client_id[input_strlen-1] == '\0');
 
     input_strlen = strlen(secret)+1;
-    retVal->client_secret = malloc(input_strlen);
-    strcpy(retVal->client_secret, secret);
+    ret_val->client_secret = malloc(input_strlen);
+    strcpy(ret_val->client_secret, secret);
 
-    assert(retVal->client_secret[input_strlen-1] == '\0');
+    assert(ret_val->client_secret[input_strlen-1] == '\0');
 
-    retVal->redirect_uri = NULL;
+    ret_val->redirect_uri = NULL;
 
     //Clear the error
-    retVal->last_error.error = OAUTH2_ERROR_NO_ERROR;
-    retVal->last_error.error_description = NULL;
-    retVal->last_error.error_uri = NULL;
-    retVal->last_error.state = NULL;
-    retVal->auth_code = NULL;
+    ret_val->last_error.error = OAUTH2_ERROR_NO_ERROR;
+    ret_val->last_error.error_description = NULL;
+    ret_val->last_error.error_uri = NULL;
+    ret_val->last_error.state = NULL;
+    ret_val->auth_code = NULL;
+	return ret_val;
 }
 
 void oauth2_set_redirect_uri(oauth2_config* conf, char* redirect_uri)
@@ -81,18 +62,21 @@ void oauth2_set_auth_code(oauth2_config* conf, char* auth_code)
     strcpy(conf->auth_code, auth_code);
 }
 
-char* oauth2_request_auth_code(oauth2_config* conf, char* auth_server, char* scope, char* state)
+char* oauth2_request_auth_code(oauth2_config* conf, char* auth_server, char* scope, char* state, char* access_type)
 {
     int core_len;
     int scope_len;
     int state_len;
+    int access_type_len;
     char* core_fmt;
     char* scope_fmt;
     char* state_fmt;
+    char* access_type_fmt;
     char* final_str;
 
     scope_len = 1;
     state_len = 1;
+    access_type_len = 1;
 
     assert(conf != NULL);
 
@@ -102,6 +86,7 @@ char* oauth2_request_auth_code(oauth2_config* conf, char* auth_server, char* sco
     core_fmt = "%s?response_type=code&client_id=%s&redirect_uri=%s";
     scope_fmt = "&scope=%s";
     state_fmt = "&state=%s";
+    access_type_fmt = "&access_type=%s";
 
     //Get the string lengths
     core_len = snprintf(NULL, 0, (const char*)core_fmt, auth_server, conf->client_id, conf->redirect_uri) + 1;
@@ -109,11 +94,14 @@ char* oauth2_request_auth_code(oauth2_config* conf, char* auth_server, char* sco
         scope_len = snprintf(NULL, 0, (const char*)scope_fmt, scope) + 1;
     if(state != NULL)
         state_len = snprintf(NULL, 0, (const char*)state_fmt, state) + 1;
+    if(access_type != NULL)
+        access_type_len = snprintf(NULL, 0, (const char*)access_type_fmt, access_type) + 1;
 
     //Actually build the string
     final_str = malloc(((core_len-1)
                         +(scope_len-1)
-                        +(state_len-1)+1)*sizeof(char));
+                        +(state_len-1)
+                        +(access_type_len-1) +1)*sizeof(char));
 
     sprintf(final_str, (const char*)core_fmt, auth_server, conf->client_id, conf->redirect_uri);
     if(scope != NULL)
@@ -125,6 +113,11 @@ char* oauth2_request_auth_code(oauth2_config* conf, char* auth_server, char* sco
         sprintf((char*)(final_str+(core_len-1)+(scope_len-1)),
                 (const char*)state_fmt,
                 state);
+
+    if(access_type != NULL)
+        sprintf((char*)(final_str+(core_len-1)+(scope_len-1)+(state_len-1)),
+                (const char*)access_type_fmt,
+                access_type);
 
     return final_str;
 }
@@ -153,25 +146,30 @@ char* oauth2_access_auth_code(oauth2_config* conf, char* auth_server, char* auth
     output = curl_make_request(auth_server, uri);
     free(uri);
 
+    if (conf->access_auth_code_transformer != NULL) {
+        return conf->access_auth_code_transformer(output);
+    }
+
     //Strip out the access token
-    acc_pos_s = strstr(output, "access_token=");
+    #define __OAUTH2_ACCESS_TOKEN_STR "access_token="
+    acc_pos_s = strstr(output, __OAUTH2_ACCESS_TOKEN_STR);
     if(acc_pos_s == NULL)
     {
         printf("%s\n", output);
         free(output);
         return NULL;
     }
-    
-    acc_pos_s += 13; //Skip past access_token
+
+    acc_pos_s += sizeof(__OAUTH2_ACCESS_TOKEN_STR); //Skip past access_token
     //Find the end of the token
     acc_pos_e = acc_pos_s;
     while(*acc_pos_e != '&' && *acc_pos_e != '\0') ++acc_pos_e;
 
     //Now extract it
-    acc_pos_len = acc_pos_e-acc_pos_s;
-    acc_code = malloc(sizeof(char)*acc_pos_len);
+    acc_pos_len = acc_pos_e - acc_pos_s;
+    acc_code = malloc(sizeof(char) * acc_pos_len);
 
-    memcpy(acc_code, acc_pos_s, acc_pos_e-acc_pos_s);
+    memcpy(acc_code, acc_pos_s, acc_pos_len);
     free(output);
 
     return acc_code;
@@ -193,10 +191,10 @@ char* oauth2_access_resource_owner(oauth2_config* conf, char* auth_server, char*
 
     //Get the length of the query
     query_len = snprintf(NULL, 0, query_fmt, conf->client_id, username, password);
-    
+
     //Allocate space for it and request
     uri = malloc(query_len+1);
-    
+
     sprintf(uri, query_fmt, conf->client_id, username, password);
 
     //Now make the request!
@@ -204,7 +202,7 @@ char* oauth2_access_resource_owner(oauth2_config* conf, char* auth_server, char*
 
     //Cleanup
     free(uri);
-    
+
     return output;
 }
 
@@ -219,8 +217,8 @@ char* oauth2_request(oauth2_config* conf, char* uri, char* params)
     //For now, we'll just include the access code with the request vars
     //This is discouraged, but I don't know if most providers actually
     //support the header-field method (Facebook is still at draft 0...)
-    
-    char* retVal;
+
+    char* ret_val;
     char* uri2;
     int uri_len;
 
@@ -229,7 +227,7 @@ char* oauth2_request(oauth2_config* conf, char* uri, char* params)
     assert(conf->client_id != NULL);
     assert(conf->auth_code != NULL);
     assert(uri != NULL);
-    
+
     //Are we POSTing?
     if(params != NULL)
     {
@@ -238,9 +236,9 @@ char* oauth2_request(oauth2_config* conf, char* uri, char* params)
         uri2 = malloc(sizeof(char)*uri_len);
         sprintf(uri2, "%s&access_token=%s", params, conf->auth_code);
 
-        retVal = curl_make_request(uri, uri2);
+        ret_val = curl_make_request(uri, uri2);
         free(uri2);
-        return retVal;
+        return ret_val;
     }
     else
     {
@@ -259,6 +257,6 @@ void oauth2_cleanup(oauth2_config* conf)
 
     if(conf->client_secret != NULL)
         free(conf->client_secret);
-    
+
     free(conf);
 }

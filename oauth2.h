@@ -1,24 +1,4 @@
-/*
-Copyright (c) 2010 Jamie Garside
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-*/
+/* See LICENSE file for copyright and license details. */
 
 #ifndef __OAUTH2_H__
 #define __OAUTH2_H__
@@ -57,6 +37,7 @@ typedef struct _oauth2_error {
     char*             state;
 } oauth2_error;
 
+typedef char*(*oauth2_response_handle)(char*);
 typedef struct _oauth2_config
 {
     char* client_id;
@@ -64,6 +45,7 @@ typedef struct _oauth2_config
     char* redirect_uri;
     char* auth_code;
     oauth2_error last_error;
+    oauth2_response_handle access_auth_code_transformer;
 } oauth2_config;
 
 //Methods
@@ -76,11 +58,11 @@ void oauth2_set_redirect_uri(oauth2_config* conf, char* redirect_uri);
 void oauth2_set_auth_code(oauth2_config* conf, char* auth_code);
 
 //Returns URL to redirect user to.
-char* oauth2_request_auth_code(oauth2_config* conf, char* auth_server, char* scope, char* state);
+char* oauth2_request_auth_code(oauth2_config* conf, char* auth_server, char* scope, char* state, char* access_type);
 char* oauth2_access_auth_code(oauth2_config* conf, char* auth_server, char* auth_code, char* scope);
 char* oauth2_access_resource_owner(oauth2_config* conf, char* auth_server, char* username, char* password);
 char* oauth2_access_refresh_token(oauth2_config* conf, char* refresh_token);
-char* oauth2_request(oauth2_config* conf, char* uri, char* params);  
+char* oauth2_request(oauth2_config* conf, char* uri, char* params);
 void oauth2_cleanup(oauth2_config* conf);
 
 
