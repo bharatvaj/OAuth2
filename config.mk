@@ -1,12 +1,15 @@
 #mk version of liboauth2
-VERSION="0.3.0"
+VERSION="0.3.1"
+
+# Paths
+PREFIX?=/usr/local
+DESTDIR=
+INSTALL=cp
+
+CFLAGS=-std=c99 -pedantic  -Wall -Wextra -Os -I.
 
 CFLAGS+= -DVERSION=$(VERSION)
 LDFLAGS+= -lcurl
-
-LIBPRE=lib
-LIBEXT=a
-ARFLAGS=cr
 
 # Windows
 # LIBPRE=

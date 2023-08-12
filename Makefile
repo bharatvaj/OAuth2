@@ -1,9 +1,14 @@
 include config.mk
 
+LIBPRE:=lib
+LIBEXT:=a
+ARFLAGS:=cr
+
+
 LIBNAME=$(LIBPRE)oauth2.$(LIBEXT)
 
 %.o: %.c %.h
-	$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 all: $(LIBNAME) test
 
@@ -17,4 +22,12 @@ test: test.o $(LIBNAME)
 clean:
 	rm -vf *.a *.lib *.o test
 
-.PHONY: all test clean
+install: $(LIBNAME)
+	$(INSTALL) $< $(DESTDIR)/$(PREFIX)/lib
+	$(INSTALL) oauth2.h $(DESTDIR)/$(PREFIX)/include
+
+uninstall:
+	$(RM) $(DESTDIR)/$(PREFIX)/lib/$(LIBNAME)
+	$(RM) $(DESTDIR)/$(PREFIX)/include/oauth2.h
+
+.PHONY: all test clean install uninstall

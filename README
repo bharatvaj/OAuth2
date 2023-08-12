@@ -1,5 +1,7 @@
 A client library to implement OAuth 2.0
 
+Original code taken from: https://github.com/slugonamission/OAuth2
+
 Prerequisites:
 libcurl
 make
